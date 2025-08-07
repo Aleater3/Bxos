@@ -177,18 +177,12 @@ function App() {
               <h1 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
                 BXOS
               </h1>
-              <div className="flex items-center space-x-2 text-sm text-gray-400">
-                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span>All systems operational</span>
-              </div>
-              <Badge variant="outline" className="text-green-400 border-green-400">
-                Backend Connected
-              </Badge>
+              <div className="flex items-center space-x-2 text-sm text-gray-400" />
             </div>
             <div className="flex items-center space-x-4">
               <Bell className="w-5 h-5 text-gray-400" />
               <User className="w-5 h-5 text-gray-400" />
-              <span className="text-sm text-gray-400">Antwane Leater</span>
+              <span className="text-sm text-gray-400">User</span>
             </div>
           </div>
         </div>
