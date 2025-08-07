@@ -38,6 +38,10 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all')
+  const [showAddDialog, setShowAddDialog] = useState(false)
+  const [newItemType, setNewItemType] = useState(null)
+  const [newItemTitle, setNewItemTitle] = useState("")
+  const [newItemDesc, setNewItemDesc] = useState("")
 
   // API base URL - will work with both local development and deployment
   const API_BASE = '/api'
@@ -152,7 +156,87 @@ function App() {
     return matchesSearch && matchesFilter
   })
 
-  const handleAddNew = () => {}
+  const handleAddNew = (type) => {
+    setNewItemType(type)
+    setNewItemTitle("")
+    setNewItemDesc("")
+    setShowAddDialog(true)
+  }
+
+  const handleCreate = () => {
+    if (!newItemType) return
+    if (newItemType === 'agent') {
+      setAgents((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          name: newItemTitle || 'Untitled Agent',
+          description: newItemDesc || '',
+          performance: 0,
+          tasks_completed: 0,
+          avg_time: '0m',
+          status: 'active',
+          platform: 'custom',
+          type: 'general'
+        },
+      ])
+    } else if (newItemType === 'course') {
+      setCourses((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          title: newItemTitle || 'Untitled Course',
+          instructor: 'Unknown',
+          provider: 'Custom',
+          progress: 0,
+          lessons_completed: 0,
+          total_lessons: 0,
+          status: 'planned'
+        },
+      ])
+    } else if (newItemType === 'funnel') {
+      setFunnels((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          name: newItemTitle || 'Untitled Funnel',
+          conversion_rate: 0,
+          revenue: 0,
+          total_visitors: 0,
+          total_leads: 0,
+          total_sales: 0,
+          status: 'planned'
+        },
+      ])
+    } else if (newItemType === 'note') {
+      setNotes((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          title: newItemTitle || 'Untitled Note',
+          content: newItemDesc || '',
+          category: 'general',
+          is_favorite: false,
+          created_at: new Date().toISOString(),
+          tags: []
+        },
+      ])
+    } else if (newItemType === 'timeline event') {
+      setTimeline((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          title: newItemTitle || 'Untitled Event',
+          description: newItemDesc || '',
+          status: 'planned',
+          event_date: new Date().toISOString(),
+          impact_level: 'low',
+          metrics: {}
+        },
+      ])
+    }
+    setShowAddDialog(false)
+  }
 
   if (loading) {
     return (
@@ -185,6 +269,39 @@ function App() {
 
       {/* Navigation */}
       <div className="max-w-7xl mx-auto p-6">
+        {showAddDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg w-full max-w-md p-6 space-y-4">
+              <div className="text-lg font-semibold">Add {newItemType}</div>
+              <input
+                className="w-full rounded-md border border-gray-600 bg-gray-900 px-3 py-2 text-sm"
+                placeholder="Title"
+                value={newItemTitle}
+                onChange={(e) => setNewItemTitle(e.target.value)}
+              />
+              <textarea
+                className="w-full rounded-md border border-gray-600 bg-gray-900 px-3 py-2 text-sm min-h-24"
+                placeholder="Description"
+                value={newItemDesc}
+                onChange={(e) => setNewItemDesc(e.target.value)}
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  className="px-3 py-2 text-sm rounded-md border border-gray-600"
+                  onClick={() => setShowAddDialog(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-3 py-2 text-sm rounded-md bg-green-600 hover:bg-green-700"
+                  onClick={handleCreate}
+                >
+                  Create
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-5 bg-gray-800/50">
             <TabsTrigger value="agents" className="flex items-center space-x-2">
