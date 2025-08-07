@@ -275,7 +275,9 @@ function App() {
                           <div className="w-8 h-8 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full flex items-center justify-center">
                             <Bot className="w-4 h-4 text-white" />
                           </div>
-                          <CardTitle className="text-lg">{agent.name}</CardTitle>
+                          <CardTitle className="text-lg">
+                            {agent.custom_title || agent.name}
+                          </CardTitle>
                         </div>
                         <div className={`text-2xl font-bold ${getPerformanceColor(agent.performance)}`}>
                           {agent.performance}%
@@ -371,7 +373,9 @@ function App() {
                   <Card key={funnel.id} className="bg-gray-800/50 border-gray-700 hover:border-orange-400/50 transition-colors">
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{funnel.name}</CardTitle>
+                        <CardTitle className="text-lg">
+                          {funnel.custom_title || funnel.name}
+                        </CardTitle>
                         <div className="text-2xl font-bold text-purple-400">
                           {funnel.conversion_rate}%
                         </div>
