@@ -152,12 +152,7 @@ function App() {
     return matchesSearch && matchesFilter
   })
 
-  const handleAddNew = (type) => {
-    // This would open a modal or form to add new items
-    console.log(`Add new ${type}`)
-    // For now, just show an alert
-    alert(`Add new ${type} functionality would be implemented here`)
-  }
+  const handleAddNew = () => {}
 
   if (loading) {
     return (
