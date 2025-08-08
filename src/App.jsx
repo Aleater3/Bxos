@@ -44,7 +44,7 @@ function App() {
   const [newItemDesc, setNewItemDesc] = useState("")
 
   // API base URL - will work with both local development and deployment
-  const API_BASE = '/api'
+  const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 
   useEffect(() => {
     fetchAllData()
