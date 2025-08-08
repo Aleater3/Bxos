@@ -1,0 +1,7 @@
+
+> bxos-frontend@0.0.0 preview /workspace
+> vite preview --port 5173 --host 0.0.0.0
+
+Port 5173 is in use, trying another one...
+  ➜  Local:   http://localhost:5174/
+  ➜  Network: http://172.30.0.2:5174/

@@ -38,9 +38,13 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all')
+  const [showAddDialog, setShowAddDialog] = useState(false)
+  const [newItemType, setNewItemType] = useState(null)
+  const [newItemTitle, setNewItemTitle] = useState("")
+  const [newItemDesc, setNewItemDesc] = useState("")
 
   // API base URL - will work with both local development and deployment
-  const API_BASE = '/api'
+  const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 
   useEffect(() => {
     fetchAllData()
@@ -49,32 +53,162 @@ function App() {
   const fetchAllData = async () => {
     setLoading(true)
     try {
-      const [agentsRes, coursesRes, funnelsRes, notesRes, timelineRes] = await Promise.all([
-        fetch(`${API_BASE}/agents`),
-        fetch(`${API_BASE}/courses`),
-        fetch(`${API_BASE}/funnels`),
-        fetch(`${API_BASE}/notes`),
-        fetch(`${API_BASE}/timeline`)
-      ])
+      const isJsonPlaceholder = API_BASE.includes('jsonplaceholder.typicode.com')
+      if (isJsonPlaceholder) {
+        await fetchFromJsonPlaceholder()
+      } else {
+        const [agentsRes, coursesRes, funnelsRes, notesRes, timelineRes] = await Promise.all([
+          fetch(`${API_BASE}/agents`),
+          fetch(`${API_BASE}/courses`),
+          fetch(`${API_BASE}/funnels`),
+          fetch(`${API_BASE}/notes`),
+          fetch(`${API_BASE}/timeline`)
+        ])
 
-      const [agentsData, coursesData, funnelsData, notesData, timelineData] = await Promise.all([
-        agentsRes.json(),
-        coursesRes.json(),
-        funnelsRes.json(),
-        notesRes.json(),
-        timelineRes.json()
-      ])
+        const [agentsData, coursesData, funnelsData, notesData, timelineData] = await Promise.all([
+          agentsRes.json(),
+          coursesRes.json(),
+          funnelsRes.json(),
+          notesRes.json(),
+          timelineRes.json()
+        ])
 
-      setAgents(agentsData.agents || [])
-      setCourses(coursesData.courses || [])
-      setFunnels(funnelsData.funnels || [])
-      setNotes(notesData.notes || [])
-      setTimeline(timelineData.events || [])
+        setAgents(agentsData.agents || [])
+        setCourses(coursesData.courses || [])
+        setFunnels(funnelsData.funnels || [])
+        setNotes(notesData.notes || [])
+        setTimeline(timelineData.events || [])
+      }
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchFromJsonPlaceholder = async () => {
+    const [usersRes, todosRes, postsRes, albumsRes, photosRes, commentsRes] = await Promise.all([
+      fetch(`${API_BASE}/users`),
+      fetch(`${API_BASE}/todos`),
+      fetch(`${API_BASE}/posts`),
+      fetch(`${API_BASE}/albums`),
+      fetch(`${API_BASE}/photos`),
+      fetch(`${API_BASE}/comments`),
+    ])
+
+    const [users, todos, posts, albums, photos, comments] = await Promise.all([
+      usersRes.json(),
+      todosRes.json(),
+      postsRes.json(),
+      albumsRes.json(),
+      photosRes.json(),
+      commentsRes.json(),
+    ])
+
+    const todosByUser = new Map()
+    for (const t of todos) {
+      const arr = todosByUser.get(t.userId) || []
+      arr.push(t)
+      todosByUser.set(t.userId, arr)
+    }
+
+    const photosByAlbum = new Map()
+    for (const p of photos) {
+      const arr = photosByAlbum.get(p.albumId) || []
+      arr.push(p)
+      photosByAlbum.set(p.albumId, arr)
+    }
+
+    const usersById = new Map(users.map(u => [u.id, u]))
+
+    // Agents from users
+    const mappedAgents = users.map(u => {
+      const userTodos = todosByUser.get(u.id) || []
+      const total = userTodos.length
+      const completed = userTodos.filter(t => t.completed).length
+      const performance = total > 0 ? Math.round((completed / total) * 100) : 0
+      return {
+        id: u.id,
+        name: u.name,
+        description: u.company?.catchPhrase || `${u.email} • ${u.website}`,
+        performance,
+        tasks_completed: completed,
+        avg_time: `${Math.max(1, Math.round(performance / 5))}m`,
+        status: performance >= 70 ? 'active' : performance >= 30 ? 'paused' : 'development',
+        platform: 'jsonplaceholder',
+        type: 'user',
+      }
+    })
+
+    // Courses from todos (limit)
+    const mappedCourses = todos.slice(0, 40).map(td => {
+      const user = usersById.get(td.userId)
+      return {
+        id: td.id,
+        title: td.title,
+        instructor: user?.name || `User ${td.userId}`,
+        provider: 'JSONPlaceholder',
+        progress: td.completed ? 100 : 0,
+        lessons_completed: td.completed ? 1 : 0,
+        total_lessons: 1,
+        status: td.completed ? 'completed' : 'planned',
+        next_lesson: null,
+      }
+    })
+
+    // Funnels from albums (use photo counts as metrics)
+    const mappedFunnels = albums.slice(0, 24).map(alb => {
+      const p = photosByAlbum.get(alb.id) || []
+      const totalPhotos = p.length
+      const revenue = totalPhotos * 25
+      const totalVisitors = totalPhotos * 100
+      const totalLeads = Math.round(totalVisitors * 0.3)
+      const totalSales = Math.round(totalLeads * 0.1)
+      const conversion = totalVisitors > 0 ? Math.round((totalSales / totalVisitors) * 100) : 0
+      return {
+        id: alb.id,
+        name: alb.title,
+        custom_title: null,
+        conversion_rate: conversion,
+        revenue,
+        total_visitors: totalVisitors,
+        total_leads: totalLeads,
+        total_sales: totalSales,
+        status: conversion >= 10 ? 'active' : 'planned',
+      }
+    })
+
+    // Notes from posts (limit)
+    const mappedNotes = posts.slice(0, 60).map(po => {
+      const user = usersById.get(po.userId)
+      const createdAt = new Date(Date.now() - po.id * 86400000).toISOString()
+      return {
+        id: po.id,
+        title: po.title,
+        content: po.body,
+        category: user?.username || 'general',
+        is_favorite: po.id % 13 === 0,
+        created_at: createdAt,
+        tags: [user?.company?.bs].filter(Boolean),
+      }
+    })
+
+    // Timeline from comments (limit)
+    const mappedTimeline = comments.slice(0, 50).map(c => ({
+      id: c.id,
+      title: c.email,
+      description: c.body,
+      status: 'completed',
+      event_date: new Date(Date.now() - c.id * 3600_000).toISOString(),
+      impact_level: 'low',
+      metrics: {},
+    }))
+
+    setAgents(mappedAgents)
+    setCourses(mappedCourses)
+    setFunnels(mappedFunnels)
+    setNotes(mappedNotes)
+    setTimeline(mappedTimeline)
   }
 
   // Helper function to get performance color
@@ -153,10 +287,85 @@ function App() {
   })
 
   const handleAddNew = (type) => {
-    // This would open a modal or form to add new items
-    console.log(`Add new ${type}`)
-    // For now, just show an alert
-    alert(`Add new ${type} functionality would be implemented here`)
+    setNewItemType(type)
+    setNewItemTitle("")
+    setNewItemDesc("")
+    setShowAddDialog(true)
+  }
+
+  const handleCreate = () => {
+    if (!newItemType) return
+    if (newItemType === 'agent') {
+      setAgents((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          name: newItemTitle || 'Untitled Agent',
+          description: newItemDesc || '',
+          performance: 0,
+          tasks_completed: 0,
+          avg_time: '0m',
+          status: 'active',
+          platform: 'custom',
+          type: 'general'
+        },
+      ])
+    } else if (newItemType === 'course') {
+      setCourses((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          title: newItemTitle || 'Untitled Course',
+          instructor: 'Unknown',
+          provider: 'Custom',
+          progress: 0,
+          lessons_completed: 0,
+          total_lessons: 0,
+          status: 'planned'
+        },
+      ])
+    } else if (newItemType === 'funnel') {
+      setFunnels((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          name: newItemTitle || 'Untitled Funnel',
+          conversion_rate: 0,
+          revenue: 0,
+          total_visitors: 0,
+          total_leads: 0,
+          total_sales: 0,
+          status: 'planned'
+        },
+      ])
+    } else if (newItemType === 'note') {
+      setNotes((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          title: newItemTitle || 'Untitled Note',
+          content: newItemDesc || '',
+          category: 'general',
+          is_favorite: false,
+          created_at: new Date().toISOString(),
+          tags: []
+        },
+      ])
+    } else if (newItemType === 'timeline event') {
+      setTimeline((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          title: newItemTitle || 'Untitled Event',
+          description: newItemDesc || '',
+          status: 'planned',
+          event_date: new Date().toISOString(),
+          impact_level: 'low',
+          metrics: {}
+        },
+      ])
+    }
+    setShowAddDialog(false)
   }
 
   if (loading) {
@@ -177,18 +386,12 @@ function App() {
               <h1 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
                 BXOS
               </h1>
-              <div className="flex items-center space-x-2 text-sm text-gray-400">
-                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span>All systems operational</span>
-              </div>
-              <Badge variant="outline" className="text-green-400 border-green-400">
-                Backend Connected
-              </Badge>
+              <div className="flex items-center space-x-2 text-sm text-gray-400" />
             </div>
             <div className="flex items-center space-x-4">
               <Bell className="w-5 h-5 text-gray-400" />
               <User className="w-5 h-5 text-gray-400" />
-              <span className="text-sm text-gray-400">Antwane Leater</span>
+              <span className="text-sm text-gray-400">User</span>
             </div>
           </div>
         </div>
@@ -196,6 +399,39 @@ function App() {
 
       {/* Navigation */}
       <div className="max-w-7xl mx-auto p-6">
+        {showAddDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg w-full max-w-md p-6 space-y-4">
+              <div className="text-lg font-semibold">Add {newItemType}</div>
+              <input
+                className="w-full rounded-md border border-gray-600 bg-gray-900 px-3 py-2 text-sm"
+                placeholder="Title"
+                value={newItemTitle}
+                onChange={(e) => setNewItemTitle(e.target.value)}
+              />
+              <textarea
+                className="w-full rounded-md border border-gray-600 bg-gray-900 px-3 py-2 text-sm min-h-24"
+                placeholder="Description"
+                value={newItemDesc}
+                onChange={(e) => setNewItemDesc(e.target.value)}
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  className="px-3 py-2 text-sm rounded-md border border-gray-600"
+                  onClick={() => setShowAddDialog(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-3 py-2 text-sm rounded-md bg-green-600 hover:bg-green-700"
+                  onClick={handleCreate}
+                >
+                  Create
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-5 bg-gray-800/50">
             <TabsTrigger value="agents" className="flex items-center space-x-2">
