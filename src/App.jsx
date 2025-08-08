@@ -53,32 +53,162 @@ function App() {
   const fetchAllData = async () => {
     setLoading(true)
     try {
-      const [agentsRes, coursesRes, funnelsRes, notesRes, timelineRes] = await Promise.all([
-        fetch(`${API_BASE}/agents`),
-        fetch(`${API_BASE}/courses`),
-        fetch(`${API_BASE}/funnels`),
-        fetch(`${API_BASE}/notes`),
-        fetch(`${API_BASE}/timeline`)
-      ])
+      const isJsonPlaceholder = API_BASE.includes('jsonplaceholder.typicode.com')
+      if (isJsonPlaceholder) {
+        await fetchFromJsonPlaceholder()
+      } else {
+        const [agentsRes, coursesRes, funnelsRes, notesRes, timelineRes] = await Promise.all([
+          fetch(`${API_BASE}/agents`),
+          fetch(`${API_BASE}/courses`),
+          fetch(`${API_BASE}/funnels`),
+          fetch(`${API_BASE}/notes`),
+          fetch(`${API_BASE}/timeline`)
+        ])
 
-      const [agentsData, coursesData, funnelsData, notesData, timelineData] = await Promise.all([
-        agentsRes.json(),
-        coursesRes.json(),
-        funnelsRes.json(),
-        notesRes.json(),
-        timelineRes.json()
-      ])
+        const [agentsData, coursesData, funnelsData, notesData, timelineData] = await Promise.all([
+          agentsRes.json(),
+          coursesRes.json(),
+          funnelsRes.json(),
+          notesRes.json(),
+          timelineRes.json()
+        ])
 
-      setAgents(agentsData.agents || [])
-      setCourses(coursesData.courses || [])
-      setFunnels(funnelsData.funnels || [])
-      setNotes(notesData.notes || [])
-      setTimeline(timelineData.events || [])
+        setAgents(agentsData.agents || [])
+        setCourses(coursesData.courses || [])
+        setFunnels(funnelsData.funnels || [])
+        setNotes(notesData.notes || [])
+        setTimeline(timelineData.events || [])
+      }
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchFromJsonPlaceholder = async () => {
+    const [usersRes, todosRes, postsRes, albumsRes, photosRes, commentsRes] = await Promise.all([
+      fetch(`${API_BASE}/users`),
+      fetch(`${API_BASE}/todos`),
+      fetch(`${API_BASE}/posts`),
+      fetch(`${API_BASE}/albums`),
+      fetch(`${API_BASE}/photos`),
+      fetch(`${API_BASE}/comments`),
+    ])
+
+    const [users, todos, posts, albums, photos, comments] = await Promise.all([
+      usersRes.json(),
+      todosRes.json(),
+      postsRes.json(),
+      albumsRes.json(),
+      photosRes.json(),
+      commentsRes.json(),
+    ])
+
+    const todosByUser = new Map()
+    for (const t of todos) {
+      const arr = todosByUser.get(t.userId) || []
+      arr.push(t)
+      todosByUser.set(t.userId, arr)
+    }
+
+    const photosByAlbum = new Map()
+    for (const p of photos) {
+      const arr = photosByAlbum.get(p.albumId) || []
+      arr.push(p)
+      photosByAlbum.set(p.albumId, arr)
+    }
+
+    const usersById = new Map(users.map(u => [u.id, u]))
+
+    // Agents from users
+    const mappedAgents = users.map(u => {
+      const userTodos = todosByUser.get(u.id) || []
+      const total = userTodos.length
+      const completed = userTodos.filter(t => t.completed).length
+      const performance = total > 0 ? Math.round((completed / total) * 100) : 0
+      return {
+        id: u.id,
+        name: u.name,
+        description: u.company?.catchPhrase || `${u.email} • ${u.website}`,
+        performance,
+        tasks_completed: completed,
+        avg_time: `${Math.max(1, Math.round(performance / 5))}m`,
+        status: performance >= 70 ? 'active' : performance >= 30 ? 'paused' : 'development',
+        platform: 'jsonplaceholder',
+        type: 'user',
+      }
+    })
+
+    // Courses from todos (limit)
+    const mappedCourses = todos.slice(0, 40).map(td => {
+      const user = usersById.get(td.userId)
+      return {
+        id: td.id,
+        title: td.title,
+        instructor: user?.name || `User ${td.userId}`,
+        provider: 'JSONPlaceholder',
+        progress: td.completed ? 100 : 0,
+        lessons_completed: td.completed ? 1 : 0,
+        total_lessons: 1,
+        status: td.completed ? 'completed' : 'planned',
+        next_lesson: null,
+      }
+    })
+
+    // Funnels from albums (use photo counts as metrics)
+    const mappedFunnels = albums.slice(0, 24).map(alb => {
+      const p = photosByAlbum.get(alb.id) || []
+      const totalPhotos = p.length
+      const revenue = totalPhotos * 25
+      const totalVisitors = totalPhotos * 100
+      const totalLeads = Math.round(totalVisitors * 0.3)
+      const totalSales = Math.round(totalLeads * 0.1)
+      const conversion = totalVisitors > 0 ? Math.round((totalSales / totalVisitors) * 100) : 0
+      return {
+        id: alb.id,
+        name: alb.title,
+        custom_title: null,
+        conversion_rate: conversion,
+        revenue,
+        total_visitors: totalVisitors,
+        total_leads: totalLeads,
+        total_sales: totalSales,
+        status: conversion >= 10 ? 'active' : 'planned',
+      }
+    })
+
+    // Notes from posts (limit)
+    const mappedNotes = posts.slice(0, 60).map(po => {
+      const user = usersById.get(po.userId)
+      const createdAt = new Date(Date.now() - po.id * 86400000).toISOString()
+      return {
+        id: po.id,
+        title: po.title,
+        content: po.body,
+        category: user?.username || 'general',
+        is_favorite: po.id % 13 === 0,
+        created_at: createdAt,
+        tags: [user?.company?.bs].filter(Boolean),
+      }
+    })
+
+    // Timeline from comments (limit)
+    const mappedTimeline = comments.slice(0, 50).map(c => ({
+      id: c.id,
+      title: c.email,
+      description: c.body,
+      status: 'completed',
+      event_date: new Date(Date.now() - c.id * 3600_000).toISOString(),
+      impact_level: 'low',
+      metrics: {},
+    }))
+
+    setAgents(mappedAgents)
+    setCourses(mappedCourses)
+    setFunnels(mappedFunnels)
+    setNotes(mappedNotes)
+    setTimeline(mappedTimeline)
   }
 
   // Helper function to get performance color
